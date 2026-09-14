@@ -38,6 +38,7 @@ class VHostProxyCreate(BaseModel):
 
 class VHostStatusResponse(BaseModel):
     domain: str
+    server_names: list[str] = Field(default_factory=list)
     enabled: bool
     has_ssl: bool
     upstream: Optional[str]

@@ -88,7 +88,9 @@ _theadmin372_completion() {
                     if [[ $cword -eq 3 ]]; then
                         local domains=""
                         if [[ -d /etc/nginx/sites-available ]]; then
-                            domains=$(command ls -1 /etc/nginx/sites-available 2>/dev/null | sed 's/\\.conf$//' | grep -v '^\\.')
+                            local files=$(command ls -1 /etc/nginx/sites-available 2>/dev/null | sed 's/\\.conf$//' | grep -v '^\\.')
+                            local sns=$(command grep -h -s -o -E "server_name[[:space:]]+[^;]+" /etc/nginx/sites-available/* 2>/dev/null | sed -e 's/server_name[[:space:]]*//' | tr -s ' ' '\\n' | grep -v '^[#_]' | grep -v '^$')
+                            domains=$(printf "%s\\n%s\\n" "$files" "$sns" | sort -u)
                         fi
                         COMPREPLY=( $(compgen -W "${domains}" -- "$cur") )
                         return 0
@@ -102,7 +104,9 @@ _theadmin372_completion() {
                     if [[ $cword -eq 3 ]]; then
                         local domains=""
                         if [[ -d /etc/nginx/sites-available ]]; then
-                            domains=$(command ls -1 /etc/nginx/sites-available 2>/dev/null | sed 's/\\.conf$//' | grep -v '^\\.')
+                            local files=$(command ls -1 /etc/nginx/sites-available 2>/dev/null | sed 's/\\.conf$//' | grep -v '^\\.')
+                            local sns=$(command grep -h -s -o -E "server_name[[:space:]]+[^;]+" /etc/nginx/sites-available/* 2>/dev/null | sed -e 's/server_name[[:space:]]*//' | tr -s ' ' '\\n' | grep -v '^[#_]' | grep -v '^$')
+                            domains=$(printf "%s\\n%s\\n" "$files" "$sns" | sort -u)
                         fi
                         COMPREPLY=( $(compgen -W "${domains}" -- "$cur") )
                         return 0

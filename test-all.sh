@@ -55,7 +55,7 @@ done
 # ------------------------------------------------------------------------------
 # TEST 1: Healthcheck
 # ------------------------------------------------------------------------------
-echo -e "\n${BOLD}${CYAN}[Test 1/8] Verifica Healthcheck e Socket UNIX...${NC}"
+echo -e "\n${BOLD}${CYAN}[Test 1/9] Verifica Healthcheck e Socket UNIX...${NC}"
 if theadmin372 health; then
     echo -e "  ${GREEN}✔ TEST 1 SUPERATO: Connessione UDS e demone operativi.${NC}"
     PASSED_TESTS=$((PASSED_TESTS + 1))
@@ -66,7 +66,7 @@ fi
 # ------------------------------------------------------------------------------
 # TEST 2: Security Check
 # ------------------------------------------------------------------------------
-echo -e "\n${BOLD}${CYAN}[Test 2/8] Controllo Integrità Permessi (Anti-Privilege Escalation)...${NC}"
+echo -e "\n${BOLD}${CYAN}[Test 2/9] Controllo Integrità Permessi (Anti-Privilege Escalation)...${NC}"
 if theadmin372 security check; then
     echo -e "  ${GREEN}✔ TEST 2 SUPERATO: Permessi protetti e anti-tampering attivo.${NC}"
     PASSED_TESTS=$((PASSED_TESTS + 1))
@@ -77,7 +77,7 @@ fi
 # ------------------------------------------------------------------------------
 # TEST 3: UFW Firewall
 # ------------------------------------------------------------------------------
-echo -e "\n${BOLD}${CYAN}[Test 3/8] Test Modulo UFW (Regole e Firewall)...${NC}"
+echo -e "\n${BOLD}${CYAN}[Test 3/9] Test Modulo UFW (Regole e Firewall)...${NC}"
 theadmin372 ufw status
 echo "Aggiunta regola porta 8080/tcp..."
 theadmin372 ufw allow 8080 --proto tcp
@@ -92,7 +92,7 @@ PASSED_TESTS=$((PASSED_TESTS + 1))
 # ------------------------------------------------------------------------------
 # TEST 4: Nginx Reverse Proxy
 # ------------------------------------------------------------------------------
-echo -e "\n${BOLD}${CYAN}[Test 4/8] Test Modulo Nginx (VHost e Reverse Proxy)...${NC}"
+echo -e "\n${BOLD}${CYAN}[Test 4/9] Test Modulo Nginx (VHost e Reverse Proxy)...${NC}"
 theadmin372 nginx list
 echo "Creazione virtual host proxy per test-app.local..."
 theadmin372 nginx proxy test-app.local http://127.0.0.1:8000 --ws --max-body 50M
@@ -110,7 +110,7 @@ PASSED_TESTS=$((PASSED_TESTS + 1))
 # ------------------------------------------------------------------------------
 # TEST 5: Docker & Compose Groups
 # ------------------------------------------------------------------------------
-echo -e "\n${BOLD}${CYAN}[Test 5/8] Test Modulo Docker & Compose Detection...${NC}"
+echo -e "\n${BOLD}${CYAN}[Test 5/9] Test Modulo Docker & Compose Detection...${NC}"
 if ! systemctl is-active docker >/dev/null 2>&1; then
     echo "Avvio servizio Docker..."
     systemctl start docker || true
@@ -142,7 +142,7 @@ fi
 # ------------------------------------------------------------------------------
 # TEST 6: Backup, Envelope Encryption, SHA-256 e Restore
 # ------------------------------------------------------------------------------
-echo -e "\n${BOLD}${CYAN}[Test 6/8] Test Modulo Backup & Envelope Encryption...${NC}"
+echo -e "\n${BOLD}${CYAN}[Test 6/9] Test Modulo Backup & Envelope Encryption...${NC}"
 TEST_USER_HOME="${HOME:-/tmp}"
 PRIV_KEY="$TEST_USER_HOME/.theadmin_test_key.pem"
 BACKUP_SRC="/tmp/test_backup_source"
@@ -186,7 +186,7 @@ theadmin372 backup delete SuiteTest >/dev/null 2>&1 || true
 # ------------------------------------------------------------------------------
 # TEST 7: Verifica Privacy Audit Log (Zero-Knowledge)
 # ------------------------------------------------------------------------------
-echo -e "\n${BOLD}${CYAN}[Test 7/8] Verifica Privacy Audit Log (Zero-Knowledge)...${NC}"
+echo -e "\n${BOLD}${CYAN}[Test 7/9] Verifica Privacy Audit Log (Zero-Knowledge)...${NC}"
 AUDIT_LOG="/var/log/theadmin372/audit.jsonl"
 if [ -f "$AUDIT_LOG" ]; then
     AUDIT_CONTENT=""
@@ -218,7 +218,7 @@ fi
 # ------------------------------------------------------------------------------
 # TEST 8: Test Utente Non-Root (testuser del gruppo sysadmin)
 # ------------------------------------------------------------------------------
-echo -e "\n${BOLD}${CYAN}[Test 8/8] Test Esecuzione da Utente Non-Root ('testuser')...${NC}"
+echo -e "\n${BOLD}${CYAN}[Test 8/9] Test Esecuzione da Utente Non-Root ('testuser')...${NC}"
 if [ "$(id -un)" = "testuser" ]; then
     if theadmin372 health >/dev/null 2>&1; then
         echo -e "  ${GREEN}✔ TEST 8 SUPERATO: L'utente non-root 'testuser' accede al demone tramite gruppo sysadmin.${NC}"

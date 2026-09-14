@@ -85,8 +85,13 @@ class NginxCommand(BaseCLICommand):
                 upstream_str = v.get("upstream") or "[dim]N/A[/dim]"
                 config_path = v.get("config_path", "")
 
+                domain_val = v.get("domain", "")
+                server_names = [sn for sn in v.get("server_names", []) if sn.lower() != domain_val.lower()]
+                if server_names:
+                    domain_val = f"{domain_val}\n[dim]({', '.join(server_names)})[/dim]"
+
                 table.add_row(
-                    v.get("domain", ""),
+                    domain_val,
                     upstream_str,
                     enabled_str,
                     ssl_str,
