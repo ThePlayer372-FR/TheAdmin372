@@ -69,8 +69,9 @@ if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
     echo -e "  Installazione pacchetti mancanti: ${MISSING_PKGS[*]}..."
     if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
-        apt-get update -qq
-        apt-get install -y -qq "${MISSING_PKGS[@]}"
+        # Non bloccare l'installazione se repository o PPA esterni di terze parti falliscono
+        apt-get update -qq 2>/dev/null || true
+        apt-get install -y -qq "${MISSING_PKGS[@]}" || apt-get install -y "${MISSING_PKGS[@]}"
     else
         echo -e "${YELLOW}  Attenzione: Package manager apt-get non rilevato. Assicurati che ${MISSING_PKGS[*]} siano installati.${NC}"
     fi
