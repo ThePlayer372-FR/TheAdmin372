@@ -1,0 +1,34 @@
+services:
+  theadmin-sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: theadmin-container
+    privileged: true
+    cgroup: host
+    stop_signal: SIGRTMIN+3
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8000:8000"
+      - "1337:1337"
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - UV_PYTHON_INSTALL_DIR=/opt/uv-python
+      - DAEMON_SOCKET=/run/theadmin372/theadmin372.sock
+    volumes:
+      # cgroup host per consentire a systemd di gestire i servizi come PID 1
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      # Codice sorgente del progetto montato in sola lettura (:ro) per testare l'anti-tampering di produzione
+      - .:/opt/TheAdmin372:ro
+      # Volumi persistenti dedicati per gli ambienti virtuali Python Linux
+      - theadmin_venv_daemon:/opt/TheAdmin372/daemon/.venv
+      - theadmin_venv_cli:/opt/TheAdmin372/cli/.venv
+      # Storage persistente per il demone Docker annidato (Docker-in-Docker con driver VFS)
+      - theadmin_docker_lib:/var/lib/docker
+
+volumes:
+  theadmin_venv_daemon:
+  theadmin_venv_cli:
+  theadmin_docker_lib:

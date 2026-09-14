@@ -1,0 +1,7 @@
+services:
+  test:
+    image: alpine
+    ports:
+      - "1337:1337"
+    command: "yes"
+

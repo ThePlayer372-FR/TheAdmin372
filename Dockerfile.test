@@ -1,0 +1,115 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 1. Installazione pacchetti di base, systemd, networking, python e dipendenze
+RUN apt-get update && apt-get install -y \
+    systemd \
+    systemd-sysv \
+    python3 \
+    python3-pip \
+    python3-venv \
+    curl \
+    git \
+    ufw \
+    iptables \
+    nginx \
+    certbot \
+    sudo \
+    jq \
+    socat \
+    tree \
+    zstd \
+    tar \
+    iproute2 \
+    procps \
+    net-tools \
+    nano \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. Pulizia target systemd non necessari per esecuzione in container
+RUN rm -f /lib/systemd/system/multi-user.target.wants/* \
+    /etc/systemd/system/*.wants/* \
+    /lib/systemd/system/local-fs.target.wants/* \
+    /lib/systemd/system/sockets.target.wants/*udev* \
+    /lib/systemd/system/sockets.target.wants/*initctl* \
+    /lib/systemd/system/sysinit.target.wants/systemd-tmpfiles-setup* \
+    /lib/systemd/system/systemd-update-utmp*
+
+# 3. Installazione toolchain UV e pre-caching di Python 3.14 in directory di sistema accessibile a tutti (0755)
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
+ENV UV_LINK_MODE=copy
+ENV PYTHONDONTWRITEBYTECODE=1
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+RUN mkdir -p /opt/uv-python \
+    && uv python install 3.14 \
+    && chmod -R 0755 /opt/uv-python
+
+# 4. Installazione Docker CE e configurazione VFS per DinD (Docker-in-Docker)
+RUN curl -fsSL https://get.docker.com | sh \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /etc/docker \
+    && echo '{\n  "storage-driver": "vfs"\n}' > /etc/docker/daemon.json
+
+# 5. Creazione del gruppo di sistema 'sysadmin' e dell'utente non-root di test 'testuser'
+RUN groupadd -r sysadmin \
+    && useradd -m -s /bin/bash -g sysadmin -G sudo,docker testuser \
+    && echo "testuser:testuser" | chpasswd
+
+# 6. Creazione gerarchia directory di sistema TheAdmin372 con permessi sicuri
+RUN mkdir -p /etc/theadmin372/keys \
+    /etc/theadmin372/backups/configs \
+    /var/backups/theadmin372/archives \
+    /var/backups/theadmin372/snapshots \
+    /var/log/theadmin372 \
+    /run/theadmin372 \
+    /root/Test \
+    && chown -R root:sysadmin /run/theadmin372 /var/log/theadmin372 \
+    && chmod 0770 /run/theadmin372 \
+    && chmod 0750 /var/log/theadmin372
+
+# 7. Pre-inizializzazione dei virtualenv per Daemon e CLI nel layer immagine
+COPY daemon /tmp/daemon
+COPY cli /tmp/cli
+RUN cd /tmp/daemon && uv sync --frozen \
+    && cd /tmp/cli && uv sync --frozen \
+    && mkdir -p /opt/TheAdmin372/daemon/.venv /opt/TheAdmin372/cli/.venv \
+    && cp -a /tmp/daemon/.venv/* /opt/TheAdmin372/daemon/.venv/ \
+    && cp -a /tmp/cli/.venv/* /opt/TheAdmin372/cli/.venv/ \
+    && rm -rf /tmp/daemon /tmp/cli \
+    && chmod -R a+rX /opt/TheAdmin372
+
+# 8. Copia e abilitazione del servizio systemd per TheAdmin372
+COPY daemon/service/theadmin372.service /etc/systemd/system/theadmin372.service
+RUN chmod 0644 /etc/systemd/system/theadmin372.service \
+    && systemctl enable theadmin372.service \
+    && systemctl enable docker.service \
+    && systemctl enable nginx.service
+
+# 9. Installazione wrapper universale CLI 'theadmin372'
+RUN printf '#!/bin/sh\n\
+export UV_PYTHON_INSTALL_DIR="/opt/uv-python"\n\
+export PYTHONDONTWRITEBYTECODE=1\n\
+if [ ! -x /opt/TheAdmin372/cli/.venv/bin/python ] && [ "$(id -u)" -eq 0 ]; then\n\
+    /usr/local/bin/uv sync --frozen --project /opt/TheAdmin372/cli >/dev/null 2>&1 || true\n\
+    chmod -R a+rX /opt/TheAdmin372/cli/.venv 2>/dev/null || true\n\
+fi\n\
+if [ -x /opt/TheAdmin372/cli/.venv/bin/python ]; then\n\
+    PYTHONPATH=/opt/TheAdmin372/cli exec /opt/TheAdmin372/cli/.venv/bin/python -m cli.main "$@"\n\
+else\n\
+    echo "Errore: ambiente TheAdmin372 CLI in /opt/TheAdmin372/cli/.venv non inizializzato." >&2\n\
+    echo "Esegui una volta theadmin372 come root oppure avvia theadmin372.service." >&2\n\
+    exit 1\n\
+fi\n' > /usr/local/bin/theadmin372 \
+    && chmod 0755 /usr/local/bin/theadmin372
+
+# 9. Copia asset di test: test compose file e suite di test 'test-all'
+COPY Test/docker-compose.yml /root/Test/docker-compose.yml
+COPY test-all.sh /usr/local/bin/test-all
+RUN chmod 0755 /usr/local/bin/test-all \
+    && ln -sf /usr/local/bin/test-all /root/test-all.sh
+
+# 10. Segnale di stop pulito per systemd e PID 1
+STOPSIGNAL SIGRTMIN+3
+CMD ["/lib/systemd/systemd"]

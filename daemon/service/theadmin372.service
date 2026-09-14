@@ -1,0 +1,47 @@
+[Unit]
+Description=TheAdmin372 Root Daemon Engine
+After=network.target
+RequiresMountsFor=/run/theadmin372
+
+[Service]
+Type=simple
+User=root
+Group=sysadmin
+
+# Percorso della root del progetto
+WorkingDirectory=/opt/TheAdmin372/daemon
+
+# Socket posizionato in /run con permessi di gruppo
+Environment="DAEMON_SOCKET=/run/theadmin372/theadmin372.sock"
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONDONTWRITEBYTECODE=1"
+Environment="UV_PYTHON_INSTALL_DIR=/opt/uv-python"
+
+# Assicura permessi 0770 root:sysadmin per la directory di runtime
+ExecStartPre=-/bin/chown root:sysadmin /run/theadmin372
+ExecStartPre=-/bin/chmod 0770 /run/theadmin372
+
+# Se i virtualenv contengono vecchi symlink rotti verso /root, rigenerali
+ExecStartPre=-/bin/sh -c 'if [ -L /opt/TheAdmin372/cli/.venv/bin/python3 ] && ls -l /opt/TheAdmin372/cli/.venv/bin/python3 | grep -q "/root"; then rm -rf /opt/TheAdmin372/cli/.venv/* /opt/TheAdmin372/daemon/.venv/*; fi'
+
+# Sincronizza automaticamente i virtualenv di demone e CLI all'avvio con Python in /opt/uv-python
+ExecStartPre=-/usr/local/bin/uv sync --frozen --project /opt/TheAdmin372/daemon
+ExecStartPre=-/usr/local/bin/uv sync --frozen --project /opt/TheAdmin372/cli
+ExecStartPre=-/bin/chmod -R a+rX /opt/TheAdmin372/cli/.venv /opt/TheAdmin372/daemon/.venv /opt/uv-python
+ExecStart=/opt/TheAdmin372/daemon/.venv/bin/python main.py
+
+# Riavvio automatico in caso di crash
+Restart=always
+RestartSec=3
+
+# Misure minime di isolamento systemd per il processo root
+PrivateTmp=false
+KillMode=mixed
+TimeoutStopSec=10
+
+# Crea automaticamente /run/theadmin372 all'avvio con permessi 0770 root:sysadmin e la distrugge quando il demone si arresta
+RuntimeDirectory=theadmin372
+RuntimeDirectoryMode=0770
+
+[Install]
+WantedBy=multi-user.target

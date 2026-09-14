@@ -1,0 +1,58 @@
+# ==============================================================================
+# TheAdmin372 - Git Ignore Policy
+# ==============================================================================
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Python Virtual Environments
+.venv/
+*/.venv/
+env/
+venv/
+ENV/
+*.venv
+
+# Python Packaging & Distribution
+build/
+dist/
+wheels/
+*.egg-info/
+*.egg
+
+# Testing, Linting & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Crittografia & Chiavi Sensibili (Zero-Knowledge)
+*.pem
+*.key
+*.pub
+!daemon/service/*.service
+
+# Archivi di Backup generati
+*.tar.gz.enc
+*.tar.zst.enc
+*.tar.gz
+*.tar.zst
+
+# Runtime & Sockets
+*.sock
+/run/
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Sistema Operativo
+.DS_Store
+Thumbs.db
