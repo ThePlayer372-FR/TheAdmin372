@@ -202,14 +202,36 @@ class NginxModule(BaseModule):
             raise HTTPException(status_code=400, detail="Nome di dominio non conforme alle specifiche RFC 1123")
         return domain_clean
 
+    def _find_conf_file(self, domain: str) -> Optional[Path]:
+        """Cerca il file di configurazione in sites-available con o senza estensione .conf."""
+        p_conf = SITES_AVAILABLE / f"{domain}.conf"
+        if p_conf.exists() and p_conf.is_file():
+            return p_conf
+        p_raw = SITES_AVAILABLE / domain
+        if p_raw.exists() and p_raw.is_file():
+            return p_raw
+        return None
+
+    def _find_symlink_file(self, domain: str, conf_file: Optional[Path] = None) -> Path:
+        """Cerca il symlink corrispondente in sites-enabled (con o senza .conf)."""
+        p_conf = SITES_ENABLED / f"{domain}.conf"
+        if p_conf.is_symlink() or p_conf.exists():
+            return p_conf
+        p_raw = SITES_ENABLED / domain
+        if p_raw.is_symlink() or p_raw.exists():
+            return p_raw
+        if conf_file is not None:
+            return SITES_ENABLED / conf_file.name
+        return p_conf
+
     def _get_vhost_status(self, domain: str) -> VHostStatusResponse:
         """Recupera lo stato corrente di un virtual host."""
-        conf_file = SITES_AVAILABLE / f"{domain}.conf"
-        if not conf_file.exists():
+        conf_file = self._find_conf_file(domain)
+        if not conf_file:
             raise HTTPException(status_code=404, detail=f"Virtual host '{domain}' non trovato")
 
-        symlink_file = SITES_ENABLED / f"{domain}.conf"
-        is_enabled = symlink_file.is_symlink() and symlink_file.exists()
+        symlink_file = self._find_symlink_file(domain, conf_file)
+        is_enabled = (symlink_file.is_symlink() and symlink_file.exists()) or (SITES_ENABLED / conf_file.name).is_symlink()
 
         content = ""
         try:
@@ -228,8 +250,10 @@ class NginxModule(BaseModule):
             else:
                 upstream = raw_up
 
+        vhost_domain = conf_file.stem if conf_file.name.endswith(".conf") else conf_file.name
+
         return VHostStatusResponse(
-            domain=domain,
+            domain=vhost_domain,
             enabled=is_enabled,
             has_ssl=has_ssl,
             upstream=upstream,
@@ -244,8 +268,15 @@ class NginxModule(BaseModule):
             if not SITES_AVAILABLE.exists():
                 return vhosts
 
-            for conf_file in sorted(SITES_AVAILABLE.glob("*.conf")):
-                domain = conf_file.stem
+            seen_paths = set()
+            for conf_file in sorted(SITES_AVAILABLE.iterdir()):
+                if not conf_file.is_file() or conf_file.name.startswith(".") or conf_file.name.endswith("~") or conf_file.name.endswith(".bak"):
+                    continue
+                real_p = conf_file.resolve()
+                if real_p in seen_paths:
+                    continue
+                seen_paths.add(real_p)
+                domain = conf_file.stem if conf_file.name.endswith(".conf") else conf_file.name
                 try:
                     vhosts.append(self._get_vhost_status(domain))
                 except Exception as e:
@@ -259,8 +290,8 @@ class NginxModule(BaseModule):
             Esegue un dry-run (nginx -t): in caso di errore, esegue il rollback immediato e restituisce HTTP 422.
             """
             domain = self._sanitize_domain(payload.domain)
-            conf_path = SITES_AVAILABLE / f"{domain}.conf"
-            symlink_path = SITES_ENABLED / f"{domain}.conf"
+            conf_path = self._find_conf_file(domain) or (SITES_AVAILABLE / f"{domain}.conf")
+            symlink_path = self._find_symlink_file(domain, conf_path)
 
             # 1. Salva lo stato precedente per il rollback
             old_conf_content: Optional[str] = None
@@ -338,11 +369,10 @@ class NginxModule(BaseModule):
         def toggle_vhost(domain: str):
             """Inverte lo stato del virtual host (abilita se disabilitato, disabilita se abilitato)."""
             clean_domain = self._sanitize_domain(domain)
-            conf_path = SITES_AVAILABLE / f"{clean_domain}.conf"
-            symlink_path = SITES_ENABLED / f"{clean_domain}.conf"
-
-            if not conf_path.exists():
+            conf_path = self._find_conf_file(clean_domain)
+            if not conf_path:
                 raise HTTPException(status_code=404, detail=f"Virtual host '{clean_domain}' non trovato")
+            symlink_path = self._find_symlink_file(clean_domain, conf_path)
 
             currently_enabled = symlink_path.is_symlink() and symlink_path.exists()
             target_enabled = not currently_enabled
@@ -388,11 +418,10 @@ class NginxModule(BaseModule):
         def enable_vhost(domain: str):
             """Abilita esplicitamente un virtual host."""
             clean_domain = self._sanitize_domain(domain)
-            conf_path = SITES_AVAILABLE / f"{clean_domain}.conf"
-            symlink_path = SITES_ENABLED / f"{clean_domain}.conf"
-
-            if not conf_path.exists():
+            conf_path = self._find_conf_file(clean_domain)
+            if not conf_path:
                 raise HTTPException(status_code=404, detail=f"Virtual host '{clean_domain}' non trovato")
+            symlink_path = self._find_symlink_file(clean_domain, conf_path)
 
             had_symlink = symlink_path.is_symlink()
             if had_symlink and symlink_path.exists():
@@ -421,11 +450,10 @@ class NginxModule(BaseModule):
         def disable_vhost(domain: str):
             """Disabilita esplicitamente un virtual host."""
             clean_domain = self._sanitize_domain(domain)
-            conf_path = SITES_AVAILABLE / f"{clean_domain}.conf"
-            symlink_path = SITES_ENABLED / f"{clean_domain}.conf"
-
-            if not conf_path.exists():
+            conf_path = self._find_conf_file(clean_domain)
+            if not conf_path:
                 raise HTTPException(status_code=404, detail=f"Virtual host '{clean_domain}' non trovato")
+            symlink_path = self._find_symlink_file(clean_domain, conf_path)
 
             had_symlink = symlink_path.is_symlink()
             if not had_symlink:
@@ -451,11 +479,10 @@ class NginxModule(BaseModule):
         def delete_vhost(domain: str):
             """Rimuove un virtual host (file di configurazione e relativo symlink)."""
             clean_domain = self._sanitize_domain(domain)
-            conf_path = SITES_AVAILABLE / f"{clean_domain}.conf"
-            symlink_path = SITES_ENABLED / f"{clean_domain}.conf"
-
-            if not conf_path.exists():
+            conf_path = self._find_conf_file(clean_domain)
+            if not conf_path:
                 raise HTTPException(status_code=404, detail=f"Virtual host '{clean_domain}' non trovato")
+            symlink_path = self._find_symlink_file(clean_domain, conf_path)
 
             old_content = conf_path.read_text(encoding="utf-8")
             had_symlink = symlink_path.is_symlink()

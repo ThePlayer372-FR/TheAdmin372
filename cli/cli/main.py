@@ -41,6 +41,11 @@ def main():
 
     args = parser.parse_args()
 
+    if args.subcommand == "completion":
+        if "completion" in commands:
+            commands["completion"].handle(args, None)
+        return
+
     client = DaemonClient(socket_path=args.socket) if args.socket else DaemonClient()
 
     if args.subcommand == "health":

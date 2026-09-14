@@ -201,6 +201,18 @@ theadmin372 ufw reload
 theadmin372 docker ps
 ```
 
+### Autocompletamento Shell (Bash / Zsh)
+TheAdmin372 supporta l'autocompletamento intelligente (tasto `TAB`) per tutti i comandi, sotto-comandi, flag e argomenti dinamici (domini Nginx e piani di backup esistenti):
+
+```bash
+# Installazione automatica nel sistema (/etc/bash_completion.d o ~/.bashrc)
+theadmin372 completion install
+
+# Oppure genera lo script per la tua shell
+eval "$(theadmin372 completion bash)"    # per Bash
+eval "$(theadmin372 completion zsh)"     # per Zsh
+```
+
 ---
 
 ## 📦 Installazione di Sistema
@@ -208,16 +220,16 @@ theadmin372 docker ps
 Lo script di installazione automatizza l'intero setup su distribuzioni Debian/Ubuntu:
 
 ```bash
-sudo ./install.sh
+curl -fsSL https://gitea.theplayer372.dev/ThePlayer372/TheAdmin372/raw/branch/main/install.sh | sudo bash
 ```
 
 ### Cosa fa lo script:
 1. Verifica i privilegi di root.
 2. Crea il gruppo di sistema dedicato **`sysadmin`** e vi assegna l'utente corrente.
-3. Installa le dipendenze di sistema (`python3`, `python3-venv`, `git`, `curl`, `ufw`, `nginx`, `certbot`, `docker`).
+3. Installa le dipendenze di sistema (`python3`, `python3-venv`, `git`, `curl`).
 4. Configura `uv` e installa Python nella directory condivisa di sistema `/opt/uv-python` (permessi `0755`).
-5. Copia i sorgenti in `/opt/TheAdmin372` e sincronizza i virtualenv isolati per `daemon` e `cli`.
-6. Installa l'eseguibile globale `/usr/local/bin/theadmin372` accessibile da tutti gli utenti.
+5. Clona/aggiorna i sorgenti in `/opt/TheAdmin372` e sincronizza i virtualenv isolati per `daemon` e `cli`.
+6. Installa l'eseguibile globale `/usr/local/bin/theadmin372` e configura l'autocompletamento in `/etc/bash_completion.d/theadmin372`.
 7. Crea le cartelle di runtime e log (`/run/theadmin372`, `/var/log/theadmin372`, `/etc/theadmin372/keys`) con permessi restrittivi `root:sysadmin`.
 8. Configura, abilita e avvia il servizio **systemd** `theadmin372.service`.
 
@@ -239,7 +251,7 @@ sudo ./install.sh
 docker compose up --build -d
 ```
 
-### Esecuzione della Suite di Test Completa (8/8 Test)
+### Esecuzione della Suite di Test Completa (9/9 Test)
 All'interno del container è disponibile lo script di collaudo automatizzato `test-all`:
 
 ```bash
@@ -248,14 +260,15 @@ docker exec -it -u testuser theadmin-container test-all
 ```
 
 #### Test eseguiti automaticamente:
-- `[Test 1/8]` Connessione UDS e Healthcheck demone
-- `[Test 2/8]` Controllo integrità permessi Anti-Privilege Escalation (1800+ file)
-- `[Test 3/8]` Firewall UFW (regole allow, deny, delete)
-- `[Test 4/8]` Nginx Reverse Proxy (creazione vhost, WebSocket, disable, enable, reload, clean)
-- `[Test 5/8]` Docker-in-Docker (pull immagine Alpine, compose up, verifica porte, compose down)
-- `[Test 6/8]` Backup con Envelope Encryption (RSA 4096 + AES-256-GCM), verifica hash SHA-256 e Restore
-- `[Test 7/8]` Verifica Zero-Knowledge dell'Audit Log (nessuna chiave privata esposta in `/var/log/theadmin372/audit.jsonl`)
-- `[Test 8/8]` Verifica accesso e permessi dell'utente non-root `testuser`
+- `[Test 1/9]` Connessione UDS e Healthcheck demone
+- `[Test 2/9]` Controllo integrità permessi Anti-Privilege Escalation (1800+ file)
+- `[Test 3/9]` Firewall UFW (regole allow, deny, delete)
+- `[Test 4/9]` Nginx Reverse Proxy (creazione vhost con o senza estensione .conf, WebSocket, disable, enable, reload, clean)
+- `[Test 5/9]` Docker-in-Docker (pull immagine Alpine, compose up, verifica porte, compose down)
+- `[Test 6/9]` Backup con Envelope Encryption (RSA 4096 + AES-256-GCM), verifica hash SHA-256 e Restore
+- `[Test 7/9]` Verifica Zero-Knowledge dell'Audit Log (nessuna chiave privata esposta in `/var/log/theadmin372/audit.jsonl`)
+- `[Test 8/9]` Verifica accesso e permessi dell'utente non-root `testuser`
+- `[Test 9/9]` Verifica generazione e funzionamento script di autocompletamento shell
 
 ---
 

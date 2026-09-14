@@ -173,6 +173,12 @@ EOF
 chmod 0755 /usr/local/bin/theadmin372
 echo -e "  ${GREEN}✔ Comando 'theadmin372' installato con permessi 0755 in /usr/local/bin/theadmin372.${NC}"
 
+# Configurazione Autocompletamento Bash di Sistema
+mkdir -p /etc/bash_completion.d
+/usr/local/bin/theadmin372 completion bash > /etc/bash_completion.d/theadmin372 2>/dev/null || true
+chmod 0644 /etc/bash_completion.d/theadmin372 2>/dev/null || true
+echo -e "  ${GREEN}✔ Autocompletamento Bash di sistema configurato in /etc/bash_completion.d/theadmin372.${NC}"
+
 # ------------------------------------------------------------------------------
 # 7. Struttura Directory di Sistema e Hardening dei Permessi
 # ------------------------------------------------------------------------------

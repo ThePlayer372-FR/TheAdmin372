@@ -23,7 +23,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 PASSED_TESTS=0
-TOTAL_TESTS=8
+TOTAL_TESTS=9
 
 echo -e "\n${BOLD}${CYAN}================================================================${NC}"
 echo -e "${BOLD}${CYAN}        Avvio Suite di Test Completa per TheAdmin372            ${NC}"
@@ -236,6 +236,17 @@ elif id testuser >/dev/null 2>&1; then
 else
     echo -e "  ${YELLOW}ℹ Utente 'testuser' non presente nel sistema, salto.${NC}"
     PASSED_TESTS=$((PASSED_TESTS + 1))
+fi
+
+# ------------------------------------------------------------------------------
+# TEST 9: Test Autocompletamento Shell (Bash)
+# ------------------------------------------------------------------------------
+echo -e "\n${BOLD}${CYAN}[Test 9/9] Test Autocompletamento Shell (Bash)...${NC}"
+if theadmin372 completion bash | grep -q "_theadmin372_completion"; then
+    echo -e "  ${GREEN}✔ TEST 9 SUPERATO: Script di autocompletamento generato e verificato con successo.${NC}"
+    PASSED_TESTS=$((PASSED_TESTS + 1))
+else
+    echo -e "  ${RED}✖ TEST 9 FALLITO: Generazione script di autocompletamento fallita.${NC}"
 fi
 
 # ------------------------------------------------------------------------------

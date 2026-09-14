@@ -98,11 +98,13 @@ fi\n\
 if [ -x /opt/TheAdmin372/cli/.venv/bin/python ]; then\n\
     PYTHONPATH=/opt/TheAdmin372/cli exec /opt/TheAdmin372/cli/.venv/bin/python -m cli.main "$@"\n\
 else\n\
-    echo "Errore: ambiente TheAdmin372 CLI in /opt/TheAdmin372/cli/.venv non inizializzato." >&2\n\
     echo "Esegui una volta theadmin372 come root oppure avvia theadmin372.service." >&2\n\
     exit 1\n\
 fi\n' > /usr/local/bin/theadmin372 \
-    && chmod 0755 /usr/local/bin/theadmin372
+    && chmod 0755 /usr/local/bin/theadmin372 \
+    && mkdir -p /etc/bash_completion.d \
+    && /usr/local/bin/theadmin372 completion bash > /etc/bash_completion.d/theadmin372 \
+    && chmod 0644 /etc/bash_completion.d/theadmin372
 
 # 9. Copia asset di test: test compose file e suite di test 'test-all'
 COPY Test/docker-compose.yml /root/Test/docker-compose.yml
