@@ -107,18 +107,20 @@ elif [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/daemon/main.py" ]; then
     echo -e "  Directory $INSTALL_DIR già presente con i sorgenti del demone."
 else
     echo -e "  Tentativo di clonazione da repository Git: ${YELLOW}$GIT_REPO_URL${NC}..."
-    if git clone "$GIT_REPO_URL" "$INSTALL_DIR" 2>/dev/null; then
+    if git clone "$GIT_REPO_URL" "$INSTALL_DIR"; then
         echo -e "  ${GREEN}✔ Clonazione da Git completata con successo in $INSTALL_DIR.${NC}"
     else
-        echo -e "  ${YELLOW}ℹ Nota: Il repository Git placeholder non è ancora online o raggiungibile.${NC}"
-        # Fallback intelligente: se lo script è all'interno della cartella dei sorgenti locali
+        # Fallback se lo script è eseguito all'interno della cartella dei sorgenti locali
         if [ -f "$CURRENT_DIR/daemon/main.py" ] && [ "$CURRENT_DIR" != "$INSTALL_DIR" ]; then
-            echo -e "  Copia dei sorgenti locali da '$CURRENT_DIR' a '$INSTALL_DIR'..."
+            echo -e "  ${YELLOW}ℹ Git clone non riuscito, fallback sui sorgenti locali da '$CURRENT_DIR'...${NC}"
             mkdir -p "$INSTALL_DIR"
             cp -a "$CURRENT_DIR/." "$INSTALL_DIR/"
             echo -e "  ${GREEN}✔ Sorgenti locali installati con successo in $INSTALL_DIR.${NC}"
         else
-            mkdir -p "$INSTALL_DIR"
+            echo -e "\n${RED}✖ Errore critico: Impossibile clonare il repository da '$GIT_REPO_URL'.${NC}"
+            echo -e "  Verifica che il repository esista e sia accessibile, oppure imposta:"
+            echo -e "  ${YELLOW}export THEADMIN_GIT_URL='<url_repository>'${NC}\n"
+            exit 1
         fi
     fi
 fi
