@@ -251,5 +251,11 @@ echo -e " • Comando CLI Globale:    ${CYAN}theadmin372${NC} (disponibile per t
 echo -e " • Gruppo di Sistema:      ${CYAN}sysadmin${NC}"
 echo -e " • Socket UNIX:            ${CYAN}/run/theadmin372/theadmin372.sock${NC} (permessi 0660 root:sysadmin)"
 echo -e " • Servizio Systemd:       ${CYAN}theadmin372.service${NC}\n"
-echo -e "${BOLD}Suggerimento:${NC} Per consentire ad un utente normale di gestire il demone senza sudo:"
-echo -e "  ${YELLOW}sudo usermod -aG sysadmin <nome_utente>${NC}\n"
+if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+    echo -e "${BOLD}Nota per l'utente '$SUDO_USER':${NC}"
+    echo -e "  Sei stato aggiunto al gruppo 'sysadmin'. Per attivare il nuovo gruppo nella sessione terminale corrente:"
+    echo -e "  👉 ${YELLOW}newgrp sysadmin${NC}  (oppure effettua logout e riconnettiti via SSH)\n"
+else
+    echo -e "${BOLD}Suggerimento:${NC} Per consentire ad un utente normale di gestire il demone senza sudo:"
+    echo -e "  ${YELLOW}sudo usermod -aG sysadmin <nome_utente>${NC}\n"
+fi
