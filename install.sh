@@ -95,7 +95,7 @@ chmod 0755 /opt/uv-python
 # 4. Download / Clonazione da Repository Git in /opt/TheAdmin372
 # ------------------------------------------------------------------------------
 INSTALL_DIR="/opt/TheAdmin372"
-GIT_REPO_URL="${THEADMIN_GIT_URL:-https://github.com/ThePlayer372/TheAdmin372.git}"
+GIT_REPO_URL="${THEADMIN_GIT_URL:-https://gitea.theplayer372.dev/ThePlayer372/TheAdmin372.git}"
 
 echo -e "\n${CYAN}[3/8] Download e sincronizzazione sorgenti in $INSTALL_DIR...${NC}"
 CURRENT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -215,7 +215,7 @@ if [ -f "$SERVICE_SRC" ]; then
     cp "$SERVICE_SRC" "$SERVICE_DST"
     chmod 0644 "$SERVICE_DST"
     chown root:root "$SERVICE_DST"
-    
+
     systemctl daemon-reload
     systemctl enable theadmin372.service
     systemctl restart theadmin372.service

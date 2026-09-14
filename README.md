@@ -1,6 +1,6 @@
 # TheAdmin372 🛡️⚙️
 
-> **Linux Root Daemon Engine & Modular CLI**  
+> **Linux Root Daemon Engine & Modular CLI**
 > Gestione sicura, dichiarativa e modulare di server Linux: Reverse Proxy Nginx, Firewall UFW, Container Docker, Backup cifrati con Envelope Encryption (Zero-Knowledge) e protezione integrata Anti-Privilege Escalation.
 
 ---
@@ -313,9 +313,3 @@ TheAdmin372/
   - `/var/log/theadmin372/audit.jsonl`: permessi `0640 root:sysadmin`.
   - `/etc/theadmin372/keys/backup_pub.pem`: permessi `0644 root:root`.
 - **Esecuzione Comandi**: Ogni comando invocato dal demone viene sottoposto a validazione dei permessi preventivi tramite `run_secure_command()` per prevenire qualsiasi escalation di privilegi.
-
----
-
-## 📄 Licenza
-
-Distribuito sotto licenza **MIT**. Consulta il repository per ulteriori dettagli.
