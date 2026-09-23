@@ -66,10 +66,11 @@ class BackupCommand(BaseCLICommand):
         run_p = sub_actions.add_parser("run", help="Avvia l'esecuzione manuale immediata del backup")
         run_p.add_argument("name", help="Nome del piano da eseguire")
 
-        # 8. theadmin372 backup restore <nome> --key <path> [--archive <filename>] [--target <dir>] [--yes]
+        # 8. theadmin372 backup restore <nome> [--key <path>] [--thesecret] [--archive <filename>] [--target <dir>] [--yes]
         restore_p = sub_actions.add_parser("restore", help="Ripristina un archivio cifrato verificando integrità e manifest")
         restore_p.add_argument("name", help="Nome del piano da ripristinare")
-        restore_p.add_argument("--key", required=True, help="Percorso locale del file contenente la chiave privata RSA PEM")
+        restore_p.add_argument("--key", required=False, default=None, help="Percorso locale della chiave privata RSA PEM (opzionale con --thesecret)")
+        restore_p.add_argument("--thesecret", action="store_true", help="Usa TheSecret372 come oracolo crittografico per decifrare l'archivio senza chiave privata")
         restore_p.add_argument("--archive", default="latest", help="Nome dell'archivio specifico da ripristinare (default: latest)")
         restore_p.add_argument("--target", default=None, help="Cartella di destinazione (se omessa: ripristino in-place con snapshot preventivo)")
         restore_p.add_argument("-y", "--yes", action="store_true", help="Conferma automatica senza richiesta interattiva")
@@ -390,16 +391,24 @@ class BackupCommand(BaseCLICommand):
                     break
 
     def _handle_restore(self, args: argparse.Namespace, client: DaemonClient) -> None:
-        key_path = Path(args.key).expanduser().resolve()
-        if not key_path.is_file():
-            console.print(f"[bold red]✖ File chiave privata non trovato in:[/bold red] {key_path}")
+        use_thesecret = getattr(args, "thesecret", False)
+        priv_key_content = None
+
+        if not use_thesecret and not args.key:
+            console.print("[bold red]✖ Errore:[/bold red] È necessario specificare [bold cyan]--key <path>[/bold cyan] oppure [bold cyan]--thesecret[/bold cyan] per delegare la decifratura all'oracolo.")
             return
 
-        try:
-            priv_key_content = key_path.read_text(encoding="utf-8")
-        except Exception as e:
-            console.print(f"[bold red]✖ Errore lettura file chiave privata:[/bold red] {e}")
-            return
+        if not use_thesecret:
+            key_path = Path(args.key).expanduser().resolve()
+            if not key_path.is_file():
+                console.print(f"[bold red]✖ File chiave privata non trovato in:[/bold red] {key_path}")
+                return
+
+            try:
+                priv_key_content = key_path.read_text(encoding="utf-8")
+            except Exception as e:
+                console.print(f"[bold red]✖ Errore lettura file chiave privata:[/bold red] {e}")
+                return
 
         # Avviso di sovrascrittura se non è specificata una cartella di test / target
         if not args.target:
@@ -422,6 +431,7 @@ class BackupCommand(BaseCLICommand):
         target_dir = str(Path(args.target).expanduser().resolve()) if args.target else None
         payload = {
             "private_key": priv_key_content,
+            "use_thesecret": use_thesecret,
             "archive": args.archive,
             "target_dir": target_dir,
         }

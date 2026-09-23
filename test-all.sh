@@ -23,7 +23,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 PASSED_TESTS=0
-TOTAL_TESTS=9
+TOTAL_TESTS=10
 
 echo -e "\n${BOLD}${CYAN}================================================================${NC}"
 echo -e "${BOLD}${CYAN}        Avvio Suite di Test Completa per TheAdmin372            ${NC}"
@@ -241,12 +241,23 @@ fi
 # ------------------------------------------------------------------------------
 # TEST 9: Test Autocompletamento Shell (Bash)
 # ------------------------------------------------------------------------------
-echo -e "\n${BOLD}${CYAN}[Test 9/9] Test Autocompletamento Shell (Bash)...${NC}"
+echo -e "\n${BOLD}${CYAN}[Test 9/10] Test Autocompletamento Shell (Bash)...${NC}"
 if theadmin372 completion bash | grep -q "_theadmin372_completion"; then
     echo -e "  ${GREEN}✔ TEST 9 SUPERATO: Script di autocompletamento generato e verificato con successo.${NC}"
     PASSED_TESTS=$((PASSED_TESTS + 1))
 else
     echo -e "  ${RED}✖ TEST 9 FALLITO: Generazione script di autocompletamento fallita.${NC}"
+fi
+
+# ------------------------------------------------------------------------------
+# TEST 10: Modulo TheSecret372 Cryptographic Oracle & Envelope Decryption
+# ------------------------------------------------------------------------------
+echo -e "\n${BOLD}${CYAN}[Test 10/10] Test Integrazione TheSecret372 Cryptographic Oracle...${NC}"
+if theadmin372 thesecret --help >/dev/null 2>&1; then
+    echo -e "  ${GREEN}✔ TEST 10 SUPERATO: Modulo 'theadmin372 thesecret' e opzione '--thesecret' operativi.${NC}"
+    PASSED_TESTS=$((PASSED_TESTS + 1))
+else
+    echo -e "  ${RED}✖ TEST 10 FALLITO: Modulo TheSecret372 non registrato o non raggiungibile.${NC}"
 fi
 
 # ------------------------------------------------------------------------------

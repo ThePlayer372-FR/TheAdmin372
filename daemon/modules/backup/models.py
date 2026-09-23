@@ -49,8 +49,15 @@ class KeyInitRequest(BaseModel):
 
 class RestoreRequest(BaseModel):
     private_key: Optional[str] = None
+    use_thesecret: bool = False
     archive: Optional[str] = "latest"
     target_dir: Optional[str] = None
+
+
+class TheSecretEnrollRequest(BaseModel):
+    host: Optional[str] = None
+    port: Optional[int] = None
+    machine_name: Optional[str] = None
 
 
 class ArchiveItem(BaseModel):

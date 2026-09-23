@@ -1,7 +1,7 @@
 import os
 import struct
 from pathlib import Path
-from typing import Tuple, Union
+from typing import Tuple, Union, Optional
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -120,13 +120,10 @@ def encrypt_envelope(data_stream: bytes, pub_key: Union[rsa.RSAPublicKey, str, P
     return header + ciphertext
 
 
-def decrypt_envelope(enc_data: bytes, private_key_pem: Union[str, bytes, Path, rsa.RSAPrivateKey]) -> bytes:
+def unpack_envelope(enc_data: bytes) -> Tuple[bytes, bytes, bytes, bytes]:
     """
-    Decifra un file generato da encrypt_envelope usando la chiave privata RSA:
-    1. Verifica MAGIC e VERSION.
-    2. Estrae ENCRYPTED_DEK, NONCE, GCM_TAG e CIPHERTEXT.
-    3. Decifra la DEK tramite RSA-OAEP con la chiave privata.
-    4. Decifra il CIPHERTEXT con AES-256-GCM verificando il GCM_TAG.
+    Estrae le componenti della cifratura Envelope:
+    Restituisce: (encrypted_dek, nonce, gcm_tag, ciphertext)
     """
     min_header_size = 4 + 1 + 2 + NONCE_LEN + GCM_TAG_LEN
     if len(enc_data) < min_header_size:
@@ -156,14 +153,34 @@ def decrypt_envelope(enc_data: bytes, private_key_pem: Union[str, bytes, Path, r
     offset += GCM_TAG_LEN
 
     ciphertext = enc_data[offset:]
+    return encrypted_dek, nonce, gcm_tag, ciphertext
 
-    # Carica la chiave privata
+
+def decrypt_envelope_with_raw_dek(enc_data: bytes, dek: bytes) -> bytes:
+    """Decifra il payload di un archivio protetto da Envelope usando la DEK simmetrica a 256 bit."""
+    _, nonce, gcm_tag, ciphertext = unpack_envelope(enc_data)
+    aesgcm = AESGCM(dek)
+    try:
+        plaintext = aesgcm.decrypt(nonce, ciphertext + gcm_tag, None)
+    except Exception as e:
+        raise ValueError(f"Decifratura payload fallita: archivio manomesso o DEK errata ({e})")
+    return plaintext
+
+
+def decrypt_envelope(enc_data: bytes, private_key_pem: Union[str, bytes, Path, rsa.RSAPrivateKey]) -> bytes:
+    """
+    Decifra un file generato da encrypt_envelope usando la chiave privata RSA locale:
+    1. Estrae ENCRYPTED_DEK, NONCE, GCM_TAG e CIPHERTEXT.
+    2. Decifra la DEK tramite RSA-OAEP con la chiave privata.
+    3. Decifra il CIPHERTEXT con AES-256-GCM.
+    """
+    encrypted_dek, _, _, _ = unpack_envelope(enc_data)
+
     if isinstance(private_key_pem, rsa.RSAPrivateKey):
         priv_key = private_key_pem
     else:
         priv_key = load_private_key(private_key_pem)
 
-    # 1. Decifra la DEK
     oaep_padding = padding.OAEP(
         mgf=padding.MGF1(algorithm=hashes.SHA256()),
         algorithm=hashes.SHA256(),
@@ -174,11 +191,20 @@ def decrypt_envelope(enc_data: bytes, private_key_pem: Union[str, bytes, Path, r
     except Exception as e:
         raise ValueError(f"Decifratura DEK fallita: chiave privata errata o non corrispondente ({e})")
 
-    # 2. Decifra il payload con AES-256-GCM
-    aesgcm = AESGCM(dek)
-    try:
-        plaintext = aesgcm.decrypt(nonce, ciphertext + gcm_tag, None)
-    except Exception as e:
-        raise ValueError(f"Decifratura payload fallita: archivio manomesso o integrità compromessa ({e})")
+    return decrypt_envelope_with_raw_dek(enc_data, dek)
 
-    return plaintext
+
+async def decrypt_envelope_via_thesecret(
+    enc_data: bytes,
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+) -> bytes:
+    """
+    Decifra un archivio delegando la decifratura asimmetrica della DEK all'oracolo TheSecret372.
+    La Master Private Key non transita né risiede mai sulla macchina TheAdmin372.
+    """
+    from .thesecret_client import decrypt_dek_via_oracle
+
+    encrypted_dek, _, _, _ = unpack_envelope(enc_data)
+    raw_dek = await decrypt_dek_via_oracle(encrypted_dek, host=host, port=port)
+    return decrypt_envelope_with_raw_dek(enc_data, raw_dek)

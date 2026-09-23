@@ -18,6 +18,7 @@ from .models import (
     JobStatusResponse,
     RestoreRequest,
     KeyInitRequest,
+    TheSecretEnrollRequest,
 )
 from .storage import (
     save_plan,
@@ -314,11 +315,12 @@ class BackupModule(BaseModule):
                 selected_item = archives[0]
                 target_archive_name = selected_item.filename
 
-            if selected_item.is_encrypted and (not req.private_key or not req.private_key.strip()):
-                raise HTTPException(
-                    status_code=400,
-                    detail="L'archivio è protetto da Envelope Encryption: fornire la chiave privata RSA (parametro 'private_key')",
-                )
+            if selected_item.is_encrypted:
+                if not req.use_thesecret and (not req.private_key or not req.private_key.strip()):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="L'archivio è protetto da Envelope Encryption: fornire la chiave privata RSA (parametro 'private_key') oppure specificare 'use_thesecret=true'",
+                    )
 
             job_id = create_job(name, action="restore")
             background_tasks.add_task(
@@ -328,8 +330,15 @@ class BackupModule(BaseModule):
                 req.private_key,
                 target_archive_name,
                 req.target_dir,
+                use_thesecret=req.use_thesecret,
             )
-            return {"job_id": job_id, "status": "pending", "plan_name": name, "archive": target_archive_name}
+            return {
+                "job_id": job_id,
+                "status": "pending",
+                "plan_name": name,
+                "archive": target_archive_name,
+                "use_thesecret": req.use_thesecret,
+            }
 
         # 7. Inizializzazione Chiavi Crittografiche
         @self._router.post("/keys/init")
@@ -351,3 +360,23 @@ class BackupModule(BaseModule):
                     "public_key": pub_pem.decode("utf-8"),
                     "private_key": priv_pem.decode("utf-8"),
                 }
+
+        # 8. Gestione Integrazione Oracolo TheSecret372
+        @self._router.get("/thesecret/status")
+        async def thesecret_status(host: Optional[str] = None, port: Optional[int] = None):
+            """Verifica lo stato della connessione mTLS e autorizzazione verso TheSecret372."""
+            from .thesecret_client import get_thesecret_status
+            return await get_thesecret_status(host=host, port=port)
+
+        @self._router.post("/thesecret/enroll")
+        async def thesecret_enroll(req: Optional[TheSecretEnrollRequest] = None):
+            """Esegue la procedura di bootstrap ed enrollment mTLS con TheSecret372."""
+            from .thesecret_client import ensure_enrolled
+            host = req.host if req else None
+            port = req.port if req else None
+            machine_name = req.machine_name if req else None
+            try:
+                result = await ensure_enrolled(host=host, port=port, machine_name=machine_name)
+                return result
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))

@@ -29,7 +29,7 @@ _theadmin372_completion() {
         cword=$COMP_CWORD
     fi
 
-    local main_commands="health security backup nginx ufw docker completion"
+    local main_commands="health security backup nginx ufw docker completion thesecret"
 
     if [[ $cword -eq 1 ]]; then
         COMPREPLY=( $(compgen -W "${main_commands} --socket --help -h" -- "$cur") )
@@ -172,7 +172,23 @@ _theadmin372_completion() {
                         _theadmin372_filedir
                         return 0
                     fi
-                    COMPREPLY=( $(compgen -W "--key --archive --target -y --yes" -- "$cur") )
+                    COMPREPLY=( $(compgen -W "--key --thesecret --archive --target -y --yes" -- "$cur") )
+                    return 0
+                    ;;
+            esac
+            ;;
+        thesecret)
+            if [[ $cword -eq 2 ]]; then
+                COMPREPLY=( $(compgen -W "status enroll test" -- "$cur") )
+                return 0
+            fi
+            case "${words[2]}" in
+                status|test)
+                    COMPREPLY=( $(compgen -W "--host --port" -- "$cur") )
+                    return 0
+                    ;;
+                enroll)
+                    COMPREPLY=( $(compgen -W "--host --port --name" -- "$cur") )
                     return 0
                     ;;
             esac

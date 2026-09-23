@@ -21,7 +21,7 @@ from .storage import (
     SNAPSHOTS_BASE_DIR,
     list_plan_archives,
 )
-from .crypto import encrypt_envelope, decrypt_envelope, load_public_key
+from .crypto import encrypt_envelope, decrypt_envelope, decrypt_envelope_via_thesecret, load_public_key
 
 # Registro in-memory dei job asincroni
 _jobs: Dict[str, JobStatusResponse] = {}
@@ -327,6 +327,7 @@ async def run_restore_task(
     private_key_pem: Optional[str],
     archive_name: Optional[str] = "latest",
     target_dir: Optional[str] = None,
+    use_thesecret: bool = False,
 ):
     """Esecuzione completa asincrona del ripristino/restore."""
     update_job(job_id, status="running", progress=5, message="Preparazione al ripristino...")
@@ -352,10 +353,14 @@ async def run_restore_task(
         # 2. Decifratura (se archivio cifrato)
         is_encrypted = target_archive_file.name.endswith(".enc")
         if is_encrypted:
-            update_job(job_id, progress=35, message="Decifratura envelope con chiave privata RSA...")
-            if not private_key_pem or not private_key_pem.strip():
-                raise ValueError("Chiave privata RSA mancante: necessaria per decifrare l'archivio")
-            compressed_bytes = decrypt_envelope(archive_bytes, private_key_pem.strip())
+            if use_thesecret:
+                update_job(job_id, progress=35, message="Decifratura envelope delegata all'oracolo TheSecret372...")
+                compressed_bytes = await decrypt_envelope_via_thesecret(archive_bytes)
+            else:
+                update_job(job_id, progress=35, message="Decifratura envelope con chiave privata RSA...")
+                if not private_key_pem or not private_key_pem.strip():
+                    raise ValueError("Chiave privata RSA mancante: necessaria per decifrare l'archivio (oppure specifica --thesecret)")
+                compressed_bytes = decrypt_envelope(archive_bytes, private_key_pem.strip())
         else:
             compressed_bytes = archive_bytes
 
