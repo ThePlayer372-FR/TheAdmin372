@@ -14,6 +14,7 @@ from .models import (
     DeletePathsRequest,
     ScheduleUpdateRequest,
     ScheduleConfig,
+    R2UploadConfig,
     ArchiveItem,
     JobStatusResponse,
     RestoreRequest,
@@ -138,6 +139,7 @@ class BackupModule(BaseModule):
                 retention_count=req.retention_count,
                 compression="zstd" if req.compression == "zstd" else "gz",
                 encryption=req.encryption,
+                r2_upload=req.r2_upload if req.r2_upload else R2UploadConfig(),
             )
 
             save_plan(plan)

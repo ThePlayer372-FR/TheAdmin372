@@ -38,6 +38,10 @@ class BackupCommand(BaseCLICommand):
         create_p.add_argument("--retention", type=int, default=7, help="Numero di archivi storici da conservare (default: 7)")
         create_p.add_argument("--compression", choices=["zstd", "gz"], default="zstd", help="Algoritmo di compressione (default: zstd)")
         create_p.add_argument("--no-encrypt", action="store_true", help="Disabilita la cifratura Envelope (sconsigliato)")
+        create_p.add_argument("--r2-endpoint", help="Cloudflare R2 Endpoint URL")
+        create_p.add_argument("--r2-bucket", help="Cloudflare R2 Bucket Name")
+        create_p.add_argument("--r2-access-key", help="Cloudflare R2 Access Key ID")
+        create_p.add_argument("--r2-secret-key", help="Cloudflare R2 Secret Access Key")
 
         # 3. theadmin372 backup add <nome> <path1> [path2 ...]
         add_p = sub_actions.add_parser("add", help="Aggiunge uno o più percorsi target al piano")
@@ -188,6 +192,17 @@ class BackupCommand(BaseCLICommand):
 
     def _handle_create(self, args: argparse.Namespace, client: DaemonClient) -> None:
         abs_paths = [str(Path(p).expanduser().resolve()) for p in getattr(args, "paths", [])]
+        
+        r2_upload = None
+        if args.r2_endpoint and args.r2_bucket and args.r2_access_key and args.r2_secret_key:
+            r2_upload = {
+                "enabled": True,
+                "endpoint_url": args.r2_endpoint,
+                "bucket_name": args.r2_bucket,
+                "access_key_id": args.r2_access_key,
+                "secret_access_key": args.r2_secret_key,
+            }
+
         payload = {
             "name": args.name,
             "paths": abs_paths,
@@ -196,6 +211,7 @@ class BackupCommand(BaseCLICommand):
             "encryption": not args.no_encrypt,
             "schedule_enabled": True,
             "schedule_interval": "24h",
+            "r2_upload": r2_upload,
         }
         res = client.post("/v1/backup/plans", json_data=payload)
         if res.status_code == 201:
@@ -203,6 +219,8 @@ class BackupCommand(BaseCLICommand):
             console.print(f"[green]✔ Piano di backup '[bold]{data['name']}[/bold]' creato con successo![/green]")
             console.print(f"  • Cifratura: [cyan]{'Envelope RSA+AES-GCM' if data['encryption'] else 'Disabilitata'}[/cyan]")
             console.print(f"  • Compressione: [cyan]{data['compression']}[/cyan] | Retention: [cyan]{data['retention_count']} archivi[/cyan]")
+            if r2_upload:
+                console.print(f"  • Cloudflare R2 Upload: [cyan]Abilitato (Bucket: {args.r2_bucket})[/cyan]")
             console.print(f"  • Schedulazione predefinita: [cyan]ogni 24h[/cyan] (usa 'theadmin372 backup schedule' per personalizzare)")
             if data.get("paths"):
                 console.print(f"  • Target iniziali configurati:")

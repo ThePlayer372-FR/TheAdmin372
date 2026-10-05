@@ -280,6 +280,28 @@ async def run_backup_task(job_id: str, plan_name: str):
         # Rinomina atomica
         tmp_path.replace(final_path)
 
+        # Upload Cloudflare R2
+        if getattr(plan, "r2_upload", None) and plan.r2_upload.enabled:
+            update_job(job_id, progress=92, message="Caricamento archivio su Cloudflare R2...")
+            try:
+                import boto3
+                from botocore.config import Config
+                s3 = boto3.client(
+                    "s3",
+                    endpoint_url=plan.r2_upload.endpoint_url,
+                    aws_access_key_id=plan.r2_upload.access_key_id,
+                    aws_secret_access_key=plan.r2_upload.secret_access_key,
+                    config=Config(signature_version="s3v4")
+                )
+                s3.upload_file(
+                    Filename=str(final_path),
+                    Bucket=plan.r2_upload.bucket_name,
+                    Key=f"{plan_name}/{archive_filename}"
+                )
+                logger.info(f"Archivio {archive_filename} caricato con successo su R2 bucket {plan.r2_upload.bucket_name}")
+            except Exception as upload_err:
+                logger.error(f"Errore durante l'upload R2 dell'archivio {archive_filename}: {upload_err}")
+
         # Pruning archivi in eccesso
         pruned = prune_plan_archives(plan_name, plan.retention_count)
         if pruned:

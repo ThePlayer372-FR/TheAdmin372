@@ -9,6 +9,13 @@ class ScheduleConfig(BaseModel):
     next_run: Optional[str] = None
 
 
+class R2UploadConfig(BaseModel):
+    enabled: bool = False
+    endpoint_url: str = ""
+    bucket_name: str = ""
+    access_key_id: str = ""
+    secret_access_key: str = ""
+
 class BackupPlan(BaseModel):
     name: str
     created_at: str
@@ -17,6 +24,7 @@ class BackupPlan(BaseModel):
     retention_count: int = Field(default=7, ge=1, le=100)
     compression: Literal["zstd", "gz"] = "zstd"
     encryption: bool = True
+    r2_upload: R2UploadConfig = Field(default_factory=R2UploadConfig)
 
 
 class CreatePlanRequest(BaseModel):
@@ -27,6 +35,7 @@ class CreatePlanRequest(BaseModel):
     retention_count: int = Field(default=7, ge=1, le=100)
     compression: Literal["zstd", "gz"] = "zstd"
     encryption: bool = True
+    r2_upload: Optional[R2UploadConfig] = None
 
 
 class AddPathsRequest(BaseModel):
