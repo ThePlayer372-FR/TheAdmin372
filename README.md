@@ -80,6 +80,7 @@
   - Cifratura asimmetrica della DEK con RSA-OAEP (SHA-256).
 - **Integrità SHA-256**: Generazione del digest crittografico SHA-256 dell'archivio, salvato nel manifest ed esplicitamente verificato prima di qualsiasi restore.
 - **Snapshot Preventivo**: Prima di eseguire qualsiasi ripristino in-place sul filesystem di sistema, il demone crea automaticamente uno snapshot di sicurezza in `/var/backups/theadmin372/snapshots/`.
+- **Integrazione Cloud Storage (R2/S3)**: Upload automatico asincrono degli archivi crittografati su Cloudflare R2 o storage S3-compatibili direttamente alla fine di ogni task di backup.
 - **Schedulatore Background**: Daemon thread asincrono per l'esecuzione automatica programmata con intervalli configurabili (es. `30m`, `6h`, `24h`, `7d`) e politica di retention configurabile (rotazione degli archivi eccedenti).
 
 ### 3. Nginx Reverse Proxy & SSL
@@ -87,7 +88,7 @@
 - Supporto per protocolli WebSocket (`Upgrade`, `Connection`).
 - Configurazione automatica dimensione massima payload (`client_max_body_size`).
 - Ricarica configurazione senza downtime (`systemctl reload nginx` con fallback automatico).
-- Automazione certificati SSL tramite Certbot e Let's Encrypt.
+- Automazione SSL avanzata: generazione di blocchi HTTPS sulla porta 443 con redirect 301 automatico da HTTP e configurazione nativa di certificati SSL Wildcard.
 
 ### 4. Firewall UFW
 - Controllo dello stato del firewall di sistema (`active` / `inactive`).
