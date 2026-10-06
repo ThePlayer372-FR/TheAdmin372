@@ -221,7 +221,7 @@ eval "$(theadmin372 completion zsh)"     # per Zsh
 Lo script di installazione automatizza l'intero setup su distribuzioni Debian/Ubuntu:
 
 ```bash
-curl -fsSL https://gitea.theplayer372.dev/ThePlayer372/TheAdmin372/raw/branch/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/ThePlayer372-FR/TheAdmin372/main/install.sh | sudo bash
 ```
 
 ### Cosa fa lo script:
