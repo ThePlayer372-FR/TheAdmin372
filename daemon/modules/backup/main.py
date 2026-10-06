@@ -80,6 +80,7 @@ class BackupModule(BaseModule):
             retention_count=plan.retention_count,
             compression=plan.compression,
             encryption=plan.encryption,
+            r2_upload=getattr(plan, "r2_upload", None),
             total_archives=len(archives),
             total_size_bytes=total_size,
             total_size_human=format_bytes(total_size),

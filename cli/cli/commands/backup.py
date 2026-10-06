@@ -296,6 +296,12 @@ class BackupCommand(BaseCLICommand):
         console.print(f"• [bold]Ultimo run:[/bold]      {sched.get('last_run') or '[dim]Mai eseguito[/dim]'}")
         console.print(f"• [bold]Prossimo run:[/bold]    {sched.get('next_run') or '[dim]-[/dim]'}")
 
+        r2_upload = plan.get("r2_upload")
+        if r2_upload and r2_upload.get("enabled"):
+            console.print(f"• [bold]R2 Upload:[/bold]       [green]✔ Abilitato[/green] (Bucket: {r2_upload.get('bucket_name')})")
+        else:
+            console.print(f"• [bold]R2 Upload:[/bold]       [dim]✖ Disabilitato[/dim]")
+
         console.print("\n[bold]Percorsi Target Inclusi:[/bold]")
         paths = plan.get("paths", [])
         if paths:

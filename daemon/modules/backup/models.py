@@ -87,6 +87,7 @@ class BackupPlanDetail(BaseModel):
     retention_count: int
     compression: str
     encryption: bool
+    r2_upload: Optional[R2UploadConfig] = None
     total_archives: int
     total_size_bytes: int
     total_size_human: str
