@@ -187,6 +187,7 @@ echo -e "\n${CYAN}[6/8] Creazione directory di sistema e applicazione Hardening.
 # Creazione cartelle di sistema
 mkdir -p /etc/theadmin372/keys
 mkdir -p /etc/theadmin372/backups/configs
+mkdir -p /etc/theadmin372/backups/presets
 mkdir -p /var/backups/theadmin372/archives
 mkdir -p /var/backups/theadmin372/snapshots
 mkdir -p /var/log/theadmin372

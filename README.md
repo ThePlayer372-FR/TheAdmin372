@@ -127,33 +127,50 @@ theadmin372 security fix
 # 1. Genera la coppia di chiavi RSA 4096-bit (la privata viene salvata localmente, la pubblica inviata al demone)
 theadmin372 backup keygen --out ~/.theadmin_backup_priv.pem
 
-# 2. Crea un nuovo piano di backup dichiarativo
-theadmin372 backup create WebApp /var/www/html /etc/nginx --compression zstd --retention 7
+# 2. Gestione Preset Cloudflare R2 (per non dover reinserire token e credenziali ogni volta)
+# Salva un preset riutilizzabile:
+theadmin372 backup preset create cf-prod \
+  --endpoint https://<account_id>.r2.cloudflarestorage.com \
+  --bucket backups \
+  --access-key <access_key_id> \
+  --secret-key <secret_access_key> \
+  --description "Bucket produzione Cloudflare R2"
 
-# 3. Gestisci i percorsi target inclusi nel piano
+# Visualizza i preset registrati o i dettagli di un preset:
+theadmin372 backup preset list
+theadmin372 backup preset show cf-prod
+
+# Applica un preset a un piano esistente:
+theadmin372 backup preset apply cf-prod VaultWarden
+
+# 3. Crea un nuovo piano di backup dichiarativo (anche con preset R2)
+theadmin372 backup create WebApp /var/www/html /etc/nginx --compression zstd --retention 7 --r2-preset cf-prod
+
+# 4. Gestisci i percorsi target inclusi nel piano
 theadmin372 backup add WebApp /opt/data
 theadmin372 backup remove WebApp /etc/nginx
 
-# 4. Configura la schedulazione automatica
+# 5. Configura la schedulazione automatica
 theadmin372 backup schedule WebApp --every 24h
 theadmin372 backup schedule WebApp --disable
 
-# 5. Visualizza i dettagli del piano e lo storico archivi con relativi hash SHA-256
+# 6. Visualizza i dettagli del piano e lo storico archivi con relativi hash SHA-256
 theadmin372 backup show WebApp
 theadmin372 backup list
 
-# 6. Avvia un backup manuale immediato
+# 7. Avvia un backup manuale immediato
 theadmin372 backup run WebApp
 
-# 7. Ripristina un archivio cifrato (Zero-Knowledge, richiede la chiave privata dell'admin)
+# 8. Ripristina un archivio cifrato (Zero-Knowledge, richiede la chiave privata dell'admin)
 # Ripristino in una directory di destinazione specifica:
 theadmin372 backup restore WebApp --key ~/.theadmin_backup_priv.pem --target /tmp/ripristino/
 
 # Ripristino in-place sui file originali di sistema (con snapshot preventivo automatico):
 theadmin372 backup restore WebApp --key ~/.theadmin_backup_priv.pem -y
 
-# 8. Elimina la configurazione di un piano di backup
+# 9. Elimina la configurazione di un piano di backup o di un preset
 theadmin372 backup delete WebApp
+theadmin372 backup preset delete cf-prod
 ```
 
 ### Modulo Nginx Reverse Proxy

@@ -5,9 +5,10 @@ import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
-from .models import BackupPlan, ArchiveItem
+from .models import BackupPlan, ArchiveItem, R2Preset
 
 CONFIGS_DIR = Path(os.getenv("THEADMIN_CONFIG_DIR", "/etc/theadmin372")) / "backups" / "configs"
+PRESETS_DIR = Path(os.getenv("THEADMIN_CONFIG_DIR", "/etc/theadmin372")) / "backups" / "presets"
 KEYS_DIR = Path(os.getenv("THEADMIN_CONFIG_DIR", "/etc/theadmin372")) / "keys"
 ARCHIVES_BASE_DIR = Path(os.getenv("THEADMIN_BACKUP_DIR", "/var/backups/theadmin372")) / "archives"
 SNAPSHOTS_BASE_DIR = Path(os.getenv("THEADMIN_BACKUP_DIR", "/var/backups/theadmin372")) / "snapshots"
@@ -24,8 +25,8 @@ FORBIDDEN_ROOTS = [
 
 
 def ensure_directories():
-    """Garantisce l'esistenza delle directory di base per configurazioni, chiavi e archivi."""
-    for d in [CONFIGS_DIR, KEYS_DIR, ARCHIVES_BASE_DIR, SNAPSHOTS_BASE_DIR]:
+    """Garantisce l'esistenza delle directory di base per configurazioni, preset, chiavi e archivi."""
+    for d in [CONFIGS_DIR, PRESETS_DIR, KEYS_DIR, ARCHIVES_BASE_DIR, SNAPSHOTS_BASE_DIR]:
         try:
             d.mkdir(parents=True, exist_ok=True)
         except Exception:
@@ -94,6 +95,7 @@ def save_plan(plan: BackupPlan) -> None:
     """Salva la configurazione del piano su file JSON in modo atomico."""
     ensure_directories()
     config_path = get_plan_config_path(plan.name)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = config_path.parent / f".tmp_{config_path.name}"
 
     data = plan.model_dump()
@@ -255,3 +257,82 @@ def save_server_public_key(pub_key_pem: str) -> Path:
 def has_server_public_key() -> bool:
     """Verifica se la chiave pubblica del server è presente su disco."""
     return SERVER_PUBLIC_KEY_PATH.is_file()
+
+
+def validate_preset_name(name: str) -> str:
+    """Valida il nome del preset per prevenire path traversal e caratteri non ammessi."""
+    name = name.strip()
+    if not name:
+        raise ValueError("Il nome del preset non può essere vuoto")
+    if not re.match(r"^[a-zA-Z0-9_-]+$", name):
+        raise ValueError("Il nome del preset può contenere solo caratteri alfanumerici, trattini e underscore")
+    return name
+
+
+def get_preset_path(name: str) -> Path:
+    clean_name = validate_preset_name(name)
+    return PRESETS_DIR / f"{clean_name}.json"
+
+
+def save_preset(preset: R2Preset) -> None:
+    """Salva la configurazione del preset su file JSON in modo atomico con permessi 0600."""
+    ensure_directories()
+    preset_path = get_preset_path(preset.name)
+    preset_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = preset_path.parent / f".tmp_{preset_path.name}"
+
+    data = preset.model_dump()
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+    try:
+        os.chmod(tmp_path, 0o600)
+    except Exception:
+        pass
+
+    tmp_path.replace(preset_path)
+
+
+def load_preset(name: str) -> Optional[R2Preset]:
+    """Carica un preset R2 da file JSON."""
+    ensure_directories()
+    preset_path = get_preset_path(name)
+    if not preset_path.is_file():
+        return None
+
+    try:
+        with open(preset_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return R2Preset(**data)
+    except Exception as e:
+        raise ValueError(f"Errore lettura preset R2 '{name}': {e}")
+
+
+def list_presets() -> List[R2Preset]:
+    """Restituisce l'elenco di tutti i preset R2 registrati."""
+    ensure_directories()
+    presets: List[R2Preset] = []
+    if not PRESETS_DIR.exists():
+        return presets
+
+    for f in sorted(PRESETS_DIR.glob("*.json")):
+        if f.name.startswith("."):
+            continue
+        preset_name = f.stem
+        try:
+            loaded = load_preset(preset_name)
+            if loaded:
+                presets.append(loaded)
+        except Exception:
+            pass
+    return presets
+
+
+def delete_preset(name: str) -> bool:
+    """Elimina il file di configurazione del preset R2."""
+    preset_path = get_preset_path(name)
+    if preset_path.is_file():
+        preset_path.unlink()
+        return True
+    return False
+

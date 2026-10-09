@@ -38,10 +38,11 @@ class BackupCommand(BaseCLICommand):
         create_p.add_argument("--retention", type=int, default=7, help="Numero di archivi storici da conservare (default: 7)")
         create_p.add_argument("--compression", choices=["zstd", "gz"], default="zstd", help="Algoritmo di compressione (default: zstd)")
         create_p.add_argument("--no-encrypt", action="store_true", help="Disabilita la cifratura Envelope (sconsigliato)")
-        create_p.add_argument("--r2-endpoint", help="Cloudflare R2 Endpoint URL")
-        create_p.add_argument("--r2-bucket", help="Cloudflare R2 Bucket Name")
-        create_p.add_argument("--r2-access-key", help="Cloudflare R2 Access Key ID")
-        create_p.add_argument("--r2-secret-key", help="Cloudflare R2 Secret Access Key")
+        create_p.add_argument("--r2-preset", help="Nome del preset Cloudflare R2 salvato da applicare")
+        create_p.add_argument("--r2-endpoint", help="Cloudflare R2 Endpoint URL (sovrascrive il preset)")
+        create_p.add_argument("--r2-bucket", help="Cloudflare R2 Bucket Name (sovrascrive il preset)")
+        create_p.add_argument("--r2-access-key", help="Cloudflare R2 Access Key ID (sovrascrive il preset)")
+        create_p.add_argument("--r2-secret-key", help="Cloudflare R2 Secret Access Key (sovrascrive il preset)")
 
         # 3. theadmin372 backup add <nome> <path1> [path2 ...]
         add_p = sub_actions.add_parser("add", help="Aggiunge uno o più percorsi target al piano")
@@ -83,6 +84,51 @@ class BackupCommand(BaseCLICommand):
         del_p = sub_actions.add_parser("delete", help="Elimina la configurazione di un piano di backup")
         del_p.add_argument("name", help="Nome del piano da eliminare")
 
+        # 10. theadmin372 backup preset {list,create,show,delete,apply}
+        preset_p = sub_actions.add_parser("preset", help="Gestione preset di configurazione Cloudflare R2")
+        preset_sub = preset_p.add_subparsers(dest="preset_action", required=True)
+
+        preset_sub.add_parser("list", aliases=["ls"], help="Elenca tutti i preset Cloudflare R2 registrati")
+
+        pr_create = preset_sub.add_parser("create", aliases=["set", "add"], help="Crea o aggiorna un preset Cloudflare R2")
+        pr_create.add_argument("name", help="Nome identificativo del preset (es. cloudflare-prod)")
+        pr_create.add_argument("--endpoint", required=True, help="Cloudflare R2 Endpoint URL")
+        pr_create.add_argument("--bucket", required=True, help="Cloudflare R2 Bucket Name")
+        pr_create.add_argument("--access-key", required=True, help="Cloudflare R2 Access Key ID")
+        pr_create.add_argument("--secret-key", required=True, help="Cloudflare R2 Secret Access Key")
+        pr_create.add_argument("--description", default=None, help="Descrizione opzionale del preset")
+
+        pr_show = preset_sub.add_parser("show", help="Mostra i dettagli di un preset Cloudflare R2")
+        pr_show.add_argument("name", help="Nome del preset da visualizzare")
+
+        pr_del = preset_sub.add_parser("delete", aliases=["remove", "rm"], help="Elimina un preset Cloudflare R2")
+        pr_del.add_argument("name", help="Nome del preset da eliminare")
+
+        pr_apply = preset_sub.add_parser("apply", help="Applica un preset R2 a un piano di backup esistente")
+        pr_apply.add_argument("preset", help="Nome del preset da applicare")
+        pr_apply.add_argument("plan", help="Nome del piano di backup target")
+        pr_apply.add_argument("--bucket", default=None, help="Bucket override opzionale per questo specifico piano")
+
+        # 10b. theadmin372 backup r2 (alias a 'preset')
+        r2_p = sub_actions.add_parser("r2", help="Alias per la gestione preset Cloudflare R2")
+        r2_sub = r2_p.add_subparsers(dest="preset_action", required=True)
+        r2_sub.add_parser("list", aliases=["ls"], help="Elenca tutti i preset Cloudflare R2 registrati")
+        r2_create = r2_sub.add_parser("create", aliases=["set", "add"], help="Crea o aggiorna un preset Cloudflare R2")
+        r2_create.add_argument("name", help="Nome identificativo del preset (es. cloudflare-prod)")
+        r2_create.add_argument("--endpoint", required=True, help="Cloudflare R2 Endpoint URL")
+        r2_create.add_argument("--bucket", required=True, help="Cloudflare R2 Bucket Name")
+        r2_create.add_argument("--access-key", required=True, help="Cloudflare R2 Access Key ID")
+        r2_create.add_argument("--secret-key", required=True, help="Cloudflare R2 Secret Access Key")
+        r2_create.add_argument("--description", default=None, help="Descrizione opzionale del preset")
+        r2_show = r2_sub.add_parser("show", help="Mostra i dettagli di un preset Cloudflare R2")
+        r2_show.add_argument("name", help="Nome del preset da visualizzare")
+        r2_del = r2_sub.add_parser("delete", aliases=["remove", "rm"], help="Elimina un preset Cloudflare R2")
+        r2_del.add_argument("name", help="Nome del preset da eliminare")
+        r2_apply = r2_sub.add_parser("apply", help="Applica un preset R2 a un piano di backup esistente")
+        r2_apply.add_argument("preset", help="Nome del preset da applicare")
+        r2_apply.add_argument("plan", help="Nome del piano di backup target")
+        r2_apply.add_argument("--bucket", default=None, help="Bucket override opzionale per questo specifico piano")
+
     def _get_error_detail(self, res) -> str:
         try:
             data = res.json()
@@ -102,6 +148,8 @@ class BackupCommand(BaseCLICommand):
             self._handle_keygen(args, client)
         elif action == "create":
             self._handle_create(args, client)
+        elif action in ("preset", "r2"):
+            self._handle_preset(args, client)
         elif action == "add":
             self._handle_add(args, client)
         elif action == "remove":
@@ -211,6 +259,7 @@ class BackupCommand(BaseCLICommand):
             "encryption": not args.no_encrypt,
             "schedule_enabled": True,
             "schedule_interval": "24h",
+            "r2_preset": getattr(args, "r2_preset", None),
             "r2_upload": r2_upload,
         }
         res = client.post("/v1/backup/plans", json_data=payload)
@@ -219,8 +268,10 @@ class BackupCommand(BaseCLICommand):
             console.print(f"[green]✔ Piano di backup '[bold]{data['name']}[/bold]' creato con successo![/green]")
             console.print(f"  • Cifratura: [cyan]{'Envelope RSA+AES-GCM' if data['encryption'] else 'Disabilitata'}[/cyan]")
             console.print(f"  • Compressione: [cyan]{data['compression']}[/cyan] | Retention: [cyan]{data['retention_count']} archivi[/cyan]")
-            if r2_upload:
-                console.print(f"  • Cloudflare R2 Upload: [cyan]Abilitato (Bucket: {args.r2_bucket})[/cyan]")
+            r2_data = data.get("r2_upload")
+            if r2_data and r2_data.get("enabled"):
+                p_text = f" (Preset: {data.get('r2_preset')})" if data.get("r2_preset") else ""
+                console.print(f"  • Cloudflare R2 Upload: [cyan]Abilitato{p_text} (Bucket: {r2_data.get('bucket_name')})[/cyan]")
             console.print(f"  • Schedulazione predefinita: [cyan]ogni 24h[/cyan] (usa 'theadmin372 backup schedule' per personalizzare)")
             if data.get("paths"):
                 console.print(f"  • Target iniziali configurati:")
@@ -297,8 +348,10 @@ class BackupCommand(BaseCLICommand):
         console.print(f"• [bold]Prossimo run:[/bold]    {sched.get('next_run') or '[dim]-[/dim]'}")
 
         r2_upload = plan.get("r2_upload")
+        r2_preset = plan.get("r2_preset")
         if r2_upload and r2_upload.get("enabled"):
-            console.print(f"• [bold]R2 Upload:[/bold]       [green]✔ Abilitato[/green] (Bucket: {r2_upload.get('bucket_name')})")
+            p_label = f" [cyan](Preset: {r2_preset})[/cyan]" if r2_preset else ""
+            console.print(f"• [bold]R2 Upload:[/bold]       [green]✔ Abilitato[/green]{p_label} (Bucket: {r2_upload.get('bucket_name')})")
         else:
             console.print(f"• [bold]R2 Upload:[/bold]       [dim]✖ Disabilitato[/dim]")
 
@@ -504,3 +557,96 @@ class BackupCommand(BaseCLICommand):
                     err = job.get("error", "Errore sconosciuto")
                     console.print(f"\n[bold red]✖ Ripristino fallito:[/bold red] {err}\n")
                     break
+
+    def _handle_preset(self, args: argparse.Namespace, client: DaemonClient) -> None:
+        action = getattr(args, "preset_action", None)
+        if action in ("list", "ls"):
+            res = client.get("/v1/backup/presets")
+            if res.status_code != 200:
+                console.print(f"[red]✖ Errore recupero preset ({res.status_code}):[/red] {self._get_error_detail(res)}")
+                return
+            presets = res.json()
+            if not presets:
+                console.print("[yellow]Nessun preset Cloudflare R2 registrato. Crea un preset con:[/yellow]")
+                console.print("  [cyan]theadmin372 backup preset create <nome> --endpoint <url> --bucket <bucket> --access-key <key> --secret-key <secret>[/cyan]")
+                return
+
+            table = Table(title="Preset Cloudflare R2 Registrati", box=box.ROUNDED, header_style="bold cyan", expand=True)
+            table.add_column("Nome Preset", style="bold white", min_width=16)
+            table.add_column("Bucket", style="green", min_width=12)
+            table.add_column("Endpoint", style="cyan")
+            table.add_column("Access Key ID", style="yellow")
+            table.add_column("Descrizione", style="dim")
+
+            for p in presets:
+                table.add_row(
+                    p.get("name", ""),
+                    p.get("bucket_name", ""),
+                    p.get("endpoint_url", ""),
+                    p.get("access_key_id_masked", ""),
+                    p.get("description") or "-",
+                )
+            console.print(table)
+
+        elif action in ("create", "set", "add"):
+            payload = {
+                "name": args.name,
+                "endpoint_url": args.endpoint,
+                "bucket_name": args.bucket,
+                "access_key_id": args.access_key,
+                "secret_access_key": args.secret_key,
+                "description": getattr(args, "description", None),
+            }
+            res = client.post("/v1/backup/presets", json_data=payload)
+            if res.status_code == 201:
+                p = res.json()
+                console.print(f"[green]✔ Preset Cloudflare R2 '[bold]{p['name']}[/bold]' salvato con successo![/green]")
+                console.print(f"  • Endpoint:   [cyan]{p['endpoint_url']}[/cyan]")
+                console.print(f"  • Bucket:     [cyan]{p['bucket_name']}[/cyan]")
+                console.print(f"  • Access Key: [yellow]{p['access_key_id_masked']}[/yellow]")
+                console.print(f"\n[dim]Per usarlo alla creazione di un piano: theadmin372 backup create <piano> --r2-preset {p['name']}[/dim]")
+                console.print(f"[dim]Per applicarlo a un piano esistente:  theadmin372 backup preset apply {p['name']} <piano>[/dim]")
+            else:
+                console.print(f"[red]✖ Errore salvataggio preset ({res.status_code}):[/red] {self._get_error_detail(res)}")
+
+        elif action == "show":
+            res = client.get(f"/v1/backup/presets/{args.name}")
+            if res.status_code == 200:
+                p = res.json()
+                console.print(f"\n[bold]Preset Cloudflare R2:[/bold] [bold cyan]{p['name']}[/bold cyan]")
+                console.print(f"• Endpoint:      [cyan]{p['endpoint_url']}[/cyan]")
+                console.print(f"• Bucket:        [cyan]{p['bucket_name']}[/cyan]")
+                console.print(f"• Access Key ID: [yellow]{p['access_key_id_masked']}[/yellow]")
+                console.print(f"• Creato il:     {p['created_at'].replace('T', ' ')[:19]}")
+                if p.get("description"):
+                    console.print(f"• Descrizione:   {p['description']}")
+                console.print()
+            elif res.status_code == 404:
+                console.print(f"[yellow]ℹ Preset R2 '{args.name}' non trovato.[/yellow]")
+            else:
+                console.print(f"[red]✖ Errore recupero preset ({res.status_code}):[/red] {self._get_error_detail(res)}")
+
+        elif action in ("delete", "remove", "rm"):
+            res = client.delete(f"/v1/backup/presets/{args.name}")
+            if res.status_code == 200:
+                console.print(f"[green]✔ Preset Cloudflare R2 '[bold]{args.name}[/bold]' eliminato con successo.[/green]")
+            elif res.status_code == 404:
+                console.print(f"[yellow]ℹ Preset R2 '{args.name}' non trovato.[/yellow]")
+            else:
+                console.print(f"[red]✖ Errore eliminazione preset ({res.status_code}):[/red] {self._get_error_detail(res)}")
+
+        elif action == "apply":
+            payload = {
+                "preset_name": args.preset,
+                "bucket_override": getattr(args, "bucket", None),
+            }
+            res = client.post(f"/v1/backup/plans/{args.plan}/r2/preset", json_data=payload)
+            if res.status_code == 200:
+                data = res.json()
+                r2 = data.get("r2_upload", {})
+                console.print(f"[green]✔ Preset '[bold]{args.preset}[/bold]' applicato con successo al piano '[bold]{args.plan}[/bold]'![/green]")
+                console.print(f"  • Bucket:   [cyan]{r2.get('bucket_name')}[/cyan]")
+                console.print(f"  • Endpoint: [cyan]{r2.get('endpoint_url')}[/cyan]")
+            else:
+                console.print(f"[red]✖ Errore applicazione preset al piano ({res.status_code}):[/red] {self._get_error_detail(res)}")
+

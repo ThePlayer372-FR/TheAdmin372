@@ -16,6 +16,40 @@ class R2UploadConfig(BaseModel):
     access_key_id: str = ""
     secret_access_key: str = ""
 
+
+class R2Preset(BaseModel):
+    name: str
+    endpoint_url: str
+    bucket_name: str
+    access_key_id: str
+    secret_access_key: str
+    created_at: str
+    description: Optional[str] = None
+
+
+class CreateR2PresetRequest(BaseModel):
+    name: str
+    endpoint_url: str
+    bucket_name: str
+    access_key_id: str
+    secret_access_key: str
+    description: Optional[str] = None
+
+
+class R2PresetSummary(BaseModel):
+    name: str
+    endpoint_url: str
+    bucket_name: str
+    access_key_id_masked: str
+    created_at: str
+    description: Optional[str] = None
+
+
+class ApplyPresetRequest(BaseModel):
+    preset_name: str
+    bucket_override: Optional[str] = None
+
+
 class BackupPlan(BaseModel):
     name: str
     created_at: str
@@ -24,7 +58,8 @@ class BackupPlan(BaseModel):
     retention_count: int = Field(default=7, ge=1, le=100)
     compression: Literal["zstd", "gz"] = "zstd"
     encryption: bool = True
-    r2_upload: R2UploadConfig = Field(default_factory=R2UploadConfig)
+    r2_preset: Optional[str] = None
+    r2_upload: Optional[R2UploadConfig] = Field(default_factory=R2UploadConfig)
 
 
 class CreatePlanRequest(BaseModel):
@@ -35,6 +70,7 @@ class CreatePlanRequest(BaseModel):
     retention_count: int = Field(default=7, ge=1, le=100)
     compression: Literal["zstd", "gz"] = "zstd"
     encryption: bool = True
+    r2_preset: Optional[str] = None
     r2_upload: Optional[R2UploadConfig] = None
 
 
@@ -87,6 +123,7 @@ class BackupPlanDetail(BaseModel):
     retention_count: int
     compression: str
     encryption: bool
+    r2_preset: Optional[str] = None
     r2_upload: Optional[R2UploadConfig] = None
     total_archives: int
     total_size_bytes: int
