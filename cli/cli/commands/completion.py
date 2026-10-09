@@ -8,7 +8,7 @@ from cli.client import DaemonClient
 
 console = Console()
 
-BASH_COMPLETION_SCRIPT = """# bash completion for theadmin372
+BASH_COMPLETION_SCRIPT = r"""# bash completion for theadmin372
 _theadmin372_filedir() {
     if declare -F _filedir >/dev/null 2>&1; then
         _filedir
@@ -118,13 +118,17 @@ _theadmin372_completion() {
             ;;
         backup)
             if [[ $cword -eq 2 ]]; then
-                COMPREPLY=( $(compgen -W "keygen create add remove schedule show list run restore delete" -- "$cur") )
+                COMPREPLY=( $(compgen -W "keygen create add remove schedule show list run restore delete preset r2" -- "$cur") )
                 return 0
             fi
             local backup_action="${words[2]}"
             local plans=""
             if [[ -d /etc/theadmin372/backups/configs ]]; then
-                plans=$(command ls -1 /etc/theadmin372/backups/configs 2>/dev/null | sed -n 's/\\.json$//p')
+                plans=$(command ls -1 /etc/theadmin372/backups/configs 2>/dev/null | sed -n 's/\.json$//p')
+            fi
+            local presets=""
+            if [[ -d /etc/theadmin372/backups/presets ]]; then
+                presets=$(command ls -1 /etc/theadmin372/backups/presets 2>/dev/null | sed -n 's/\.json$//p')
             fi
 
             case "$backup_action" in
@@ -136,8 +140,18 @@ _theadmin372_completion() {
                     if [[ "$prev" == "--compression" ]]; then
                         COMPREPLY=( $(compgen -W "zstd gz" -- "$cur") )
                         return 0
+                    elif [[ "$prev" == "--r2-preset" ]]; then
+                        COMPREPLY=( $(compgen -W "${presets}" -- "$cur") )
+                        return 0
                     fi
-                    COMPREPLY=( $(compgen -W "--retention --compression --no-encrypt" -- "$cur") )
+                    if [[ "$cur" == -* ]]; then
+                        COMPREPLY=( $(compgen -W "--retention --compression --no-encrypt --r2-preset --r2-endpoint --r2-bucket --r2-access-key --r2-secret-key" -- "$cur") )
+                        return 0
+                    elif [[ $cword -ge 4 ]]; then
+                        _theadmin372_filedir
+                        return 0
+                    fi
+                    COMPREPLY=( $(compgen -W "--retention --compression --no-encrypt --r2-preset --r2-endpoint --r2-bucket --r2-access-key --r2-secret-key" -- "$cur") )
                     return 0
                     ;;
                 add|remove)
@@ -162,6 +176,39 @@ _theadmin372_completion() {
                         COMPREPLY=( $(compgen -W "${plans}" -- "$cur") )
                         return 0
                     fi
+                    ;;
+                preset|r2)
+                    if [[ $cword -eq 3 ]]; then
+                        COMPREPLY=( $(compgen -W "list ls create set add show delete remove rm apply" -- "$cur") )
+                        return 0
+                    fi
+                    local preset_action="${words[3]}"
+                    case "$preset_action" in
+                        create|set|add)
+                            COMPREPLY=( $(compgen -W "--endpoint --bucket --access-key --secret-key --description" -- "$cur") )
+                            return 0
+                            ;;
+                        show|delete|remove|rm)
+                            if [[ $cword -eq 4 ]]; then
+                                COMPREPLY=( $(compgen -W "${presets}" -- "$cur") )
+                                return 0
+                            fi
+                            ;;
+                        apply)
+                            if [[ $cword -eq 4 ]]; then
+                                COMPREPLY=( $(compgen -W "${presets}" -- "$cur") )
+                                return 0
+                            elif [[ $cword -eq 5 ]]; then
+                                COMPREPLY=( $(compgen -W "${plans}" -- "$cur") )
+                                return 0
+                            elif [[ "$prev" == "--bucket" ]]; then
+                                return 0
+                            else
+                                COMPREPLY=( $(compgen -W "--bucket" -- "$cur") )
+                                return 0
+                            fi
+                            ;;
+                    esac
                     ;;
                 restore)
                     if [[ $cword -eq 3 ]]; then
